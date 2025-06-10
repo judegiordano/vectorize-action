@@ -15,3 +15,4 @@ lto = true          # enable link time optimization
 actions-toolkit = "0.0.2"
 anyhow = "1.0.98"
 tokio = { version = "1.45.1", features = ["macros", "rt-multi-thread", "time"] }
+walkdir = "2.5.0"
