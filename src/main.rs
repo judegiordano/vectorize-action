@@ -4,10 +4,11 @@ use std::{path::Path, time::Instant};
 use walkdir::{DirEntry, WalkDir};
 
 fn skip_entry(dir: &DirEntry) -> bool {
+    let mut ignores = ["/github/workspace/.git"].iter();
     dir.file_name()
         .to_str()
-        .map(|a| a.starts_with(".git"))
-        .unwrap_or(false)
+        .map(|a| ignores.any(|ignore| a.starts_with(ignore)))
+        .unwrap_or(true)
 }
 
 #[tokio::main]
