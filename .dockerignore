@@ -1,0 +1,8 @@
+client
+target
+
+.dockerignore
+.gitignore
+docker-compose.yml
+Dockerfile
+.env

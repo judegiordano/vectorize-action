@@ -1,0 +1,14 @@
+services:
+  action:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/github/workspace
+    environment:
+      - GITHUB_WORKSPACE=/github/workspace
+      - INPUT_NAME=Local Test
+      - GITHUB_PATH=/tmp/github_path
+      - GITHUB_OUTPUT=/tmp/github_output
+
+    working_dir: /github/workspace

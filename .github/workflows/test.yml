@@ -1,0 +1,17 @@
+name: Test
+on: [push]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: test action
+        id: rust_action
+        uses: ./
+        with:
+          name: 'Rust Developer'
+
+      - name: consume output
+        run: echo "The action took ${{ steps.rust_action.outputs.time }} to run"

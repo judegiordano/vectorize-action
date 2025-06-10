@@ -1,0 +1,13 @@
+name: 'Rust GitHub Action'
+description: 'A GitHub Action written in Rust'
+inputs:
+  name:
+    description: 'Who to greet'
+    required: true
+    default: 'World'
+outputs:
+  time:
+    description: 'The time elapsed for completing the action'
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
