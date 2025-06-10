@@ -1,7 +1,14 @@
 use actions_toolkit::core::{self, Core};
 use anyhow::Result;
 use std::{path::Path, time::Instant};
-use walkdir::WalkDir;
+use walkdir::{DirEntry, WalkDir};
+
+fn skip_entry(dir: &DirEntry) -> bool {
+    dir.file_name()
+        .to_str()
+        .map(|a| a.starts_with(".git"))
+        .unwrap_or(false)
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -14,14 +21,17 @@ async fn main() -> Result<()> {
     //
     let workspace = std::env::var("GITHUB_WORKSPACE")?;
     let file_path = Path::new(&workspace);
-    let entries = WalkDir::new(file_path).follow_links(true).into_iter();
+    let entries = WalkDir::new(file_path)
+        .follow_links(true)
+        .into_iter()
+        .filter_entry(skip_entry);
     for entry in entries {
         match entry {
             Ok(entry) => {
-                core.debug(&format!("Found entry: {:?}", entry.path()))?;
+                core.debug(&format!("[ENTRY]: {:?}", entry.path()))?;
             }
             Err(e) => {
-                core.debug(&format!("Error reading entry: {}", e))?;
+                core.debug(&format!("[ERROR READING]: {}", e))?;
             }
         }
     }
