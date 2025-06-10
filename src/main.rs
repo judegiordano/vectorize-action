@@ -5,7 +5,7 @@ use walkdir::{DirEntry, WalkDir};
 
 fn filter_entries(entry: &DirEntry) -> bool {
     // by default, only skip .git folder
-    let skips = ["github/workspace/.git"];
+    let skips = ["github/workspace/.git/"];
     // todo: extend skips from actions yml
     let name = entry.path().to_str().unwrap_or_default();
     if skips.iter().any(|skip| name.contains(skip)) {
