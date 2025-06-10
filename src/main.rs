@@ -4,9 +4,11 @@ use std::{path::Path, time::Instant};
 use walkdir::{DirEntry, WalkDir};
 
 fn filter_entries(entry: &DirEntry) -> bool {
+    // by default, only skip .git folder
     let skips = ["github/workspace/.git"];
-    let name = entry.file_name().to_str().unwrap_or_default();
-    if name.starts_with(".") || skips.contains(&name) {
+    // todo: extend skips from actions yml
+    let name = entry.path().to_str().unwrap_or_default();
+    if skips.iter().any(|skip| name.contains(skip)) {
         return false;
     }
     true
@@ -18,7 +20,7 @@ async fn main() -> Result<()> {
     let mut core = Core::new();
 
     let name = core::input("name")?;
-    core.debug(&format!("Starting file scan for {}", name))?;
+    core.debug(&format!("hello, {}", name))?;
 
     let workspace = std::env::var("GITHUB_WORKSPACE")?;
     let file_path = Path::new(&workspace);
@@ -32,14 +34,11 @@ async fn main() -> Result<()> {
         let path = entry?;
         if path.file_type().is_file() {
             file_count += 1;
-            core.debug(&format!("Processing: {}", path.path().display()))?;
+            core.debug(&format!("[PROCESSING]: {}", path.path().display()))?;
         }
     }
 
-    core.debug(&format!(
-        "Scan complete! Found {} relevant files",
-        file_count
-    ))?;
+    core.debug(&format!("[PROCESSING COMPLETE]: [{} FILES]", file_count))?;
     core.set_output("time", format!("{:?}", start.elapsed()))?;
     Ok(())
 }
