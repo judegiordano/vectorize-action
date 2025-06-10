@@ -4,10 +4,9 @@ use std::{path::Path, time::Instant};
 use walkdir::{DirEntry, WalkDir};
 
 fn skip_entry(dir: &DirEntry) -> bool {
-    let mut ignores = ["/github/workspace/.git"].iter();
     dir.file_name()
         .to_str()
-        .map(|a| ignores.any(|ignore| a.starts_with(ignore)))
+        .map(|a| !a.starts_with("/github/workspace/.git"))
         .unwrap_or(true)
 }
 
@@ -27,14 +26,8 @@ async fn main() -> Result<()> {
         .into_iter()
         .filter_entry(skip_entry);
     for entry in entries {
-        match entry {
-            Ok(entry) => {
-                core.debug(&format!("[ENTRY]: {:?}", entry.path()))?;
-            }
-            Err(e) => {
-                core.debug(&format!("[ERROR READING]: {}", e))?;
-            }
-        }
+        let path = entry?;
+        core.debug(&format!("[ENTRY]: {:?}", path.path()))?;
     }
     //
     core.set_output("time", format!("{:?}", start.elapsed()))?;
