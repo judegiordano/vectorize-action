@@ -1,90 +1,41 @@
-use actions_toolkit::core::{self, Core};
 use anyhow::Result;
 use fastembed::TextEmbedding;
-use serde::Serialize;
 use serde_json::json;
-use std::{fs, path::Path, time::Instant};
-use walkdir::{DirEntry, WalkDir};
+use std::{fs, time::Instant};
 
-const DATA_PATH: &str = ".artifact_data";
+use crate::{entries::DATA_PATH, metadata::Action};
 
-#[derive(Debug, Serialize)]
-pub struct Embed {
-    pub file: String,
-    pub path: String,
-    pub vector: Vec<f32>,
-}
-
-fn filter_entries(entry: &DirEntry) -> bool {
-    let skips = [
-        "github/workspace/.git/",
-        "github/workspace/.fastembed_cache/",
-        &format!("github/workspace/{DATA_PATH}"),
-    ];
-    // todo: extend skips from actions yml
-    let name = entry.path().to_str().unwrap_or_default();
-    if skips.iter().any(|skip| name.contains(skip)) {
-        return false;
-    }
-    true
-}
-
-fn process_file(model: &TextEmbedding, path: &DirEntry) -> Result<Option<Embed>> {
-    if !path.file_type().is_file() {
-        return Ok(None);
-    }
-    let file_name = path.file_name().to_string_lossy().to_string();
-    let path = path.path();
-    core::debug(&format!("[PROCESSING]: {}", file_name));
-    let file_content = match fs::read_to_string(&path) {
-        Ok(content) => content,
-        Err(err) => {
-            core::warning(&format!("[ERROR READING] [{file_name}]: [{err:?}]"));
-            return Ok(None);
-        }
-    };
-    let embedding = model.embed(vec![file_content], None)?;
-    let embed = Embed {
-        file: file_name,
-        path: path.to_string_lossy().to_string(),
-        vector: embedding.first().unwrap().to_vec(),
-    };
-    Ok(Some(embed))
-}
+mod entries;
+mod metadata;
+mod process_file;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let model = TextEmbedding::try_new(Default::default())?;
     let start = Instant::now();
-    let mut core = Core::new();
 
-    let name = core::input("name")?;
-    core.debug(&format!("hello, {}", name))?;
-
-    let workspace = std::env::var("GITHUB_WORKSPACE")?;
-    let commit_sha = std::env::var("GITHUB_SHA")?;
-    let workspace_path = Path::new(&workspace);
+    let mut action = Action::new()?;
+    action
+        .core
+        .debug(&format!("hello, {}", action.inputs.name))?;
 
     // process
     let mut embeds = vec![];
-    let entries = WalkDir::new(workspace_path)
-        .follow_links(true)
-        .into_iter()
-        .filter_entry(filter_entries);
+    let entries = entries::task(&action.workspace_path);
     for entry in entries {
         let path = entry?;
-        if let Some(embed) = process_file(&model, &path)? {
+        if let Some(embed) = process_file::task(&model, &path)? {
             embeds.push(embed);
         }
     }
     let report = json!({
-        "sha": commit_sha,
+        "sha": action.commit_sha,
         "total": embeds.len(),
         "time_taken": format!("{:?}", start.elapsed()),
         "embeddings": embeds,
     });
-    let output_file_name = format!("{commit_sha}.json");
-    let artifact_dir = workspace_path.join(DATA_PATH);
+    let output_file_name = format!("{}.json", action.commit_sha);
+    let artifact_dir = action.workspace_path.join(DATA_PATH);
     fs::create_dir_all(&artifact_dir)?;
 
     // flush
@@ -92,6 +43,6 @@ async fn main() -> Result<()> {
     fs::write(&joined_path, serde_json::to_string_pretty(&report)?)?;
 
     // set outputs
-    core.set_output("data_path", DATA_PATH)?;
+    action.core.set_output("data_path", DATA_PATH)?;
     Ok(())
 }
