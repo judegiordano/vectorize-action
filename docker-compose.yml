@@ -10,5 +10,6 @@ services:
       - INPUT_NAME=Local Test
       - GITHUB_PATH=/tmp/github_path
       - GITHUB_OUTPUT=/tmp/github_output
+      - GITHUB_SHA=8a49af76c9eed3663859440c5cf31d2ed6877e39
 
     working_dir: /github/workspace

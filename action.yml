@@ -6,8 +6,8 @@ inputs:
     required: true
     default: 'World'
 outputs:
-  time:
-    description: 'The time elapsed for completing the action'
+  data_path:
+    description: 'The path for downloading artifact data'
 runs:
   using: 'docker'
   image: 'Dockerfile'

@@ -23,5 +23,13 @@ jobs:
         with:
           name: 'Rust Developer'
 
-      - name: consume output
-        run: echo "The action took ${{ steps.rust_action.outputs.time }} to run"
+      - name: log data_path
+        run: echo "copy from ${{ steps.rust_action.outputs.data_path }}"
+
+      - name: upload data artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: upload-artifact
+          path: ${{ steps.rust_action.outputs.data_path }}
+          retention-days: 1
+

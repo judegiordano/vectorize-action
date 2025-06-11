@@ -6,3 +6,4 @@ target
 docker-compose.yml
 Dockerfile
 .env
+.artifact_data
