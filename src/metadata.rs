@@ -26,6 +26,7 @@ pub struct Action {
     pub core: Core<Stdout>,
     pub commit_sha: String,
     pub artifact_path: String,
+    pub db_url: String,
     pub workspace_path: PathBuf,
     pub inputs: Inputs,
 }
@@ -36,10 +37,14 @@ impl Action {
         let workspace = std::env::var("GITHUB_WORKSPACE")?;
         let commit_sha = std::env::var("GITHUB_SHA")?;
         let workspace_path = Path::new(&workspace).to_owned();
+        let artifact_dir = Path::new(&DATA_PATH);
+        let mut db_path = artifact_dir.join(&commit_sha);
+        db_path.set_extension("db");
         Ok(Self {
             core,
             commit_sha,
             artifact_path: workspace_path.join(DATA_PATH).to_string_lossy().to_string(),
+            db_url: format!("sqlite:{}", db_path.to_string_lossy()),
             workspace_path,
             inputs: Inputs::new()?,
         })

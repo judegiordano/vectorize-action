@@ -7,8 +7,6 @@ use walkdir::DirEntry;
 
 use crate::metadata::Action;
 
-// pub const DATA_PATH: &str = ".artifact_data";
-
 #[derive(Debug, Serialize)]
 pub struct Embed {
     pub file: String,
@@ -42,10 +40,9 @@ pub fn task(model: &TextEmbedding, action: &Action, path: &DirEntry) -> Result<O
         }
     };
     let embedding = model.embed(vec![file_content], None)?;
-    let embed: Embed = Embed {
+    Ok(Some(Embed {
         file: file_name,
         path: path_str,
         vector: embedding.first().unwrap().to_vec(),
-    };
-    Ok(Some(embed))
+    }))
 }

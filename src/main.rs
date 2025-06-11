@@ -1,47 +1,92 @@
 use anyhow::Result;
 use fastembed::TextEmbedding;
-use serde_json::json;
-use std::{fs, path::Path, time::Instant};
+use sea_query::{Alias, ColumnDef, Expr, InsertStatement, SqliteQueryBuilder, Table};
+use sqlx::SqlitePool;
+use uuid::Uuid;
 use walkdir::WalkDir;
 
-use crate::metadata::{Action, DATA_PATH};
+use crate::{
+    metadata::{Action, DATA_PATH},
+    sql::FileEmbeddingIden,
+};
 
 mod metadata;
 mod process_file;
+mod sql;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let model = TextEmbedding::try_new(Default::default())?;
-    let start = Instant::now();
-
     let mut action = Action::new()?;
-
+    let model = TextEmbedding::try_new(Default::default())?;
+    // sql connect
+    let table_name = action.commit_sha.clone();
+    sql::generate_db_file(&action.db_url).await?;
+    let pool = SqlitePool::connect(&action.db_url).await?;
+    {
+        let mut operation = Table::create();
+        let statement = operation
+            .table(Alias::new(&table_name))
+            .if_not_exists()
+            .col(
+                ColumnDef::new(FileEmbeddingIden::Id)
+                    .primary_key()
+                    .uuid()
+                    .not_null(),
+            )
+            .col(ColumnDef::new(FileEmbeddingIden::Sha).string().not_null())
+            .col(ColumnDef::new(FileEmbeddingIden::File).string().not_null())
+            .col(ColumnDef::new(FileEmbeddingIden::Path).string().not_null())
+            .col(
+                ColumnDef::new(FileEmbeddingIden::Vector)
+                    .json_binary()
+                    .not_null(),
+            )
+            .col(
+                ColumnDef::new(FileEmbeddingIden::UpdatedAt)
+                    .timestamp_with_time_zone()
+                    .default(Expr::current_timestamp())
+                    .not_null(),
+            )
+            .col(
+                ColumnDef::new(FileEmbeddingIden::CreatedAt)
+                    .timestamp_with_time_zone()
+                    .default(Expr::current_timestamp())
+                    .not_null(),
+            );
+        let stmt = statement.to_string(SqliteQueryBuilder);
+        sqlx::query(&stmt).execute(&pool).await?;
+    }
     // process
-    let mut embeds = vec![];
-    // let entries = entries::task(&action);
     let entries = WalkDir::new(&action.workspace_path)
         .follow_links(true)
         .into_iter();
     for entry in entries {
         let path = entry?;
         if let Some(embed) = process_file::task(&model, &action, &path)? {
-            embeds.push(embed);
+            {
+                let mut operation = InsertStatement::new();
+                let statement = operation
+                    .into_table(Alias::new(&table_name))
+                    .returning_all()
+                    .columns([
+                        FileEmbeddingIden::Id,
+                        FileEmbeddingIden::Sha,
+                        FileEmbeddingIden::File,
+                        FileEmbeddingIden::Path,
+                        FileEmbeddingIden::Vector,
+                    ])
+                    .values([
+                        Uuid::new_v4().into(),
+                        action.commit_sha.to_string().into(),
+                        embed.file.into(),
+                        embed.path.into(),
+                        serde_json::to_string(&embed.vector)?.into(),
+                    ])?;
+                let stmt = statement.to_string(SqliteQueryBuilder);
+                sqlx::query(&stmt).execute(&pool).await?;
+            }
         }
     }
-    let report = json!({
-        "sha": action.commit_sha,
-        "total": embeds.len(),
-        "time_taken": format!("{:?}", start.elapsed()),
-        "embeddings": embeds,
-    });
-    let output_file_name = format!("{}.json", action.commit_sha);
-    let artifact_path = Path::new(&action.artifact_path);
-    fs::create_dir_all(&artifact_path)?;
-
-    // flush
-    let joined_path = artifact_path.join(output_file_name);
-    fs::write(&joined_path, serde_json::to_string_pretty(&report)?)?;
-
     // set outputs
     action.core.set_output("data_path", DATA_PATH)?;
     Ok(())
