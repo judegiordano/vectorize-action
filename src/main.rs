@@ -29,6 +29,29 @@ fn filter_entries(entry: &DirEntry) -> bool {
     true
 }
 
+fn process_file(model: &TextEmbedding, path: &DirEntry) -> Result<Option<Embed>> {
+    if !path.file_type().is_file() {
+        return Ok(None);
+    }
+    let file_name = path.file_name().to_string_lossy().to_string();
+    let path = path.path();
+    core::debug(&format!("[PROCESSING]: {}", file_name));
+    let file_content = match fs::read_to_string(&path) {
+        Ok(content) => content,
+        Err(err) => {
+            core::warning(&format!("[ERROR READING] [{file_name}]: [{err:?}]"));
+            return Ok(None);
+        }
+    };
+    let embedding = model.embed(vec![file_content], None)?;
+    let embed = Embed {
+        file: file_name,
+        path: path.to_string_lossy().to_string(),
+        vector: embedding.first().unwrap().to_vec(),
+    };
+    Ok(Some(embed))
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let model = TextEmbedding::try_new(Default::default())?;
@@ -50,23 +73,8 @@ async fn main() -> Result<()> {
         .filter_entry(filter_entries);
     for entry in entries {
         let path = entry?;
-        if path.clone().file_type().is_file() {
-            core.debug(&format!("[PROCESSING]: {}", path.path().display()))?;
-            let file_name = path.file_name().to_string_lossy().to_string();
-            let file_content = match fs::read_to_string(path.path()) {
-                Ok(content) => content,
-                Err(err) => {
-                    core.warning(&format!("[ERROR READING] [{file_name}]: [{err:?}]"))?;
-                    continue;
-                }
-            };
-            let embedding = model.embed(vec![file_content], None)?;
-            let embedding = Embed {
-                file: file_name,
-                path: path.path().to_string_lossy().to_string(),
-                vector: embedding.first().unwrap().to_vec(),
-            };
-            embeds.push(embedding);
+        if let Some(embed) = process_file(&model, &path)? {
+            embeds.push(embed);
         }
     }
     let report = json!({
