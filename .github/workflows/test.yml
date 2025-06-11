@@ -30,8 +30,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: upload-artifact
-          # path: ${{ steps.rust_action.outputs.data_path }}
-          path: .artifact_data/*.json
+          path: ${{ steps.rust_action.outputs.data_path }}/*.json
           retention-days: 1
           include-hidden-files: true
           overwrite: true

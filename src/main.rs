@@ -4,9 +4,14 @@ use serde_json::json;
 use std::{fs, path::Path, time::Instant};
 use walkdir::{DirEntry, WalkDir};
 
+const DATA_PATH: &str = ".artifact_data";
+
 fn filter_entries(entry: &DirEntry) -> bool {
     // by default, only skip .git folder
-    let skips = ["github/workspace/.git/", "github/workspace/.artifact_data/"];
+    let skips = [
+        "github/workspace/.git/",
+        &format!("github/workspace/{DATA_PATH}"),
+    ];
     // todo: extend skips from actions yml
     let name = entry.path().to_str().unwrap_or_default();
     if skips.iter().any(|skip| name.contains(skip)) {
@@ -50,14 +55,14 @@ async fn main() -> Result<()> {
         }
     });
     let output_file_name = format!("{commit_sha}.json");
-    let artifact_dir = workspace_path.join(".artifact_data");
+    let artifact_dir = workspace_path.join(DATA_PATH);
     fs::create_dir_all(&artifact_dir)?;
 
     // flush
-    let data_path = artifact_dir.join(output_file_name);
-    fs::write(&data_path, serde_json::to_string_pretty(&report)?)?;
+    let joined_path = artifact_dir.join(output_file_name);
+    fs::write(&joined_path, serde_json::to_string_pretty(&report)?)?;
 
     // set outputs
-    core.set_output("data_path", data_path.to_string_lossy())?;
+    core.set_output("data_path", DATA_PATH)?;
     Ok(())
 }
