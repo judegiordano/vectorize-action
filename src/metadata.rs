@@ -5,6 +5,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+pub const DATA_PATH: &str = ".artifact_data";
+
 pub struct Inputs {
     pub excludes: Vec<String>,
 }
@@ -23,6 +25,7 @@ impl Inputs {
 pub struct Action {
     pub core: Core<Stdout>,
     pub commit_sha: String,
+    pub artifact_path: String,
     pub workspace_path: PathBuf,
     pub inputs: Inputs,
 }
@@ -36,6 +39,7 @@ impl Action {
         Ok(Self {
             core,
             commit_sha,
+            artifact_path: workspace_path.join(DATA_PATH).to_string_lossy().to_string(),
             workspace_path,
             inputs: Inputs::new()?,
         })

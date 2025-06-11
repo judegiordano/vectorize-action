@@ -1,11 +1,11 @@
 use anyhow::Result;
 use fastembed::TextEmbedding;
 use serde_json::json;
-use std::{fs, time::Instant};
+use std::{fs, path::Path, time::Instant};
+use walkdir::WalkDir;
 
-use crate::{entries::DATA_PATH, metadata::Action};
+use crate::metadata::Action;
 
-mod entries;
 mod metadata;
 mod process_file;
 
@@ -18,10 +18,13 @@ async fn main() -> Result<()> {
 
     // process
     let mut embeds = vec![];
-    let entries = entries::task(&action);
+    // let entries = entries::task(&action);
+    let entries = WalkDir::new(&action.workspace_path)
+        .follow_links(true)
+        .into_iter();
     for entry in entries {
         let path = entry?;
-        if let Some(embed) = process_file::task(&model, &path)? {
+        if let Some(embed) = process_file::task(&model, &action, &path)? {
             embeds.push(embed);
         }
     }
@@ -32,14 +35,14 @@ async fn main() -> Result<()> {
         "embeddings": embeds,
     });
     let output_file_name = format!("{}.json", action.commit_sha);
-    let artifact_dir = action.workspace_path.join(DATA_PATH);
-    fs::create_dir_all(&artifact_dir)?;
+    let artifact_path = Path::new(&action.artifact_path);
+    fs::create_dir_all(&artifact_path)?;
 
     // flush
-    let joined_path = artifact_dir.join(output_file_name);
+    let joined_path = artifact_path.join(output_file_name);
     fs::write(&joined_path, serde_json::to_string_pretty(&report)?)?;
 
     // set outputs
-    action.core.set_output("data_path", DATA_PATH)?;
+    action.core.set_output("data_path", action.artifact_path)?;
     Ok(())
 }

@@ -1,10 +1,13 @@
-use std::fs;
-
 use actions_toolkit::core;
 use anyhow::Result;
 use fastembed::TextEmbedding;
 use serde::Serialize;
+use std::fs;
 use walkdir::DirEntry;
+
+use crate::metadata::Action;
+
+// pub const DATA_PATH: &str = ".artifact_data";
 
 #[derive(Debug, Serialize)]
 pub struct Embed {
@@ -13,13 +16,24 @@ pub struct Embed {
     pub vector: Vec<f32>,
 }
 
-pub fn task(model: &TextEmbedding, path: &DirEntry) -> Result<Option<Embed>> {
-    if !path.file_type().is_file() {
+pub fn task(model: &TextEmbedding, action: &Action, path: &DirEntry) -> Result<Option<Embed>> {
+    if path.file_type().is_dir() {
         return Ok(None);
     }
     let file_name = path.file_name().to_string_lossy().to_string();
     let path = path.path();
-    core::debug(&format!("[PROCESSING]: {}", file_name));
+    let path_str = path.to_string_lossy().to_string();
+    // excludes
+    if action
+        .inputs
+        .excludes
+        .iter()
+        .any(|skip| path_str.contains(skip))
+        || path_str.contains(&action.artifact_path)
+    {
+        return Ok(None);
+    }
+    core::debug(&format!("[PROCESSING]: {path_str}"));
     let file_content = match fs::read_to_string(&path) {
         Ok(content) => content,
         Err(err) => {
@@ -28,9 +42,9 @@ pub fn task(model: &TextEmbedding, path: &DirEntry) -> Result<Option<Embed>> {
         }
     };
     let embedding = model.embed(vec![file_content], None)?;
-    let embed = Embed {
+    let embed: Embed = Embed {
         file: file_name,
-        path: path.to_string_lossy().to_string(),
+        path: path_str,
         vector: embedding.first().unwrap().to_vec(),
     };
     Ok(Some(embed))

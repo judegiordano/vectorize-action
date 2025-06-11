@@ -7,7 +7,7 @@ services:
       - .:/github/workspace
     environment:
       - GITHUB_WORKSPACE=/github/workspace
-      - INPUT_EXCLUDE=.fastembed_cache/,target
+      - INPUT_EXCLUDE=.fastembed_cache/,target,/github/workspace/.git/
       - GITHUB_PATH=/tmp/github_path
       - GITHUB_OUTPUT=/tmp/github_output
       - GITHUB_SHA=8a49af76c9eed3663859440c5cf31d2ed6877e39
