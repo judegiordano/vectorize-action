@@ -32,4 +32,6 @@ jobs:
           name: upload-artifact
           path: ${{ steps.rust_action.outputs.data_path }}
           retention-days: 1
-
+          include-hidden-files: true
+          overwrite: true
+          if-no-files-found: error
