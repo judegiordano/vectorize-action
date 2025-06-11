@@ -7,3 +7,4 @@ docker-compose.yml
 Dockerfile
 .env
 .artifact_data
+.fastembed_cache

@@ -2,8 +2,8 @@ FROM rust:slim AS chef
 
 # install build tools
 RUN apt-get update -y && \
-    apt-get install -y pkg-config make g++ libssl-dev musl-tools && \
-    rustup target add x86_64-unknown-linux-musl
+    apt-get install -y pkg-config make g++ libssl-dev musl-tools openssl && \
+    rustup target add x86_64-unknown-linux-gnu
 
 # add cargo chef (this installs only once on first build)
 RUN cargo install cargo-chef 
@@ -20,9 +20,9 @@ RUN cargo chef cook --release --recipe-path recipe.json
 
 # build binary
 COPY . .
-RUN cargo build --release --target x86_64-unknown-linux-musl
+RUN cargo build --release --target x86_64-unknown-linux-gnu
 
-# final scratch image; launch app
-FROM scratch
-COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/vectorize-project /vectorize-project
-ENTRYPOINT [ "/vectorize-project" ]
+# final image; execute
+FROM gcr.io/distroless/cc
+COPY --from=builder /app/target/x86_64-unknown-linux-gnu/release/vectorize-project /bin/vectorize-project
+ENTRYPOINT [ "/bin/vectorize-project" ]
