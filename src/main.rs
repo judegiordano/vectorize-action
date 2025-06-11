@@ -4,7 +4,7 @@ use serde_json::json;
 use std::{fs, path::Path, time::Instant};
 use walkdir::WalkDir;
 
-use crate::metadata::Action;
+use crate::metadata::{Action, DATA_PATH};
 
 mod metadata;
 mod process_file;
@@ -43,6 +43,6 @@ async fn main() -> Result<()> {
     fs::write(&joined_path, serde_json::to_string_pretty(&report)?)?;
 
     // set outputs
-    action.core.set_output("data_path", action.artifact_path)?;
+    action.core.set_output("data_path", DATA_PATH)?;
     Ok(())
 }
