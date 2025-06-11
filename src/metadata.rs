@@ -6,13 +6,16 @@ use std::{
 };
 
 pub struct Inputs {
-    pub name: String,
+    pub excludes: Vec<String>,
 }
 
 impl Inputs {
     pub fn new() -> Result<Self> {
         Ok(Self {
-            name: core::input("name")?,
+            excludes: core::input("exclude")?
+                .split(",")
+                .map(|str: &str| str.to_string())
+                .collect(),
         })
     }
 }

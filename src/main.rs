@@ -15,13 +15,10 @@ async fn main() -> Result<()> {
     let start = Instant::now();
 
     let mut action = Action::new()?;
-    action
-        .core
-        .debug(&format!("hello, {}", action.inputs.name))?;
 
     // process
     let mut embeds = vec![];
-    let entries = entries::task(&action.workspace_path);
+    let entries = entries::task(&action);
     for entry in entries {
         let path = entry?;
         if let Some(embed) = process_file::task(&model, &path)? {

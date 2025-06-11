@@ -1,15 +1,11 @@
-use std::path::Path;
+use actions_toolkit::core;
 use walkdir::{DirEntry, FilterEntry, IntoIter, WalkDir};
+
+use crate::metadata::Action;
 
 pub const DATA_PATH: &str = ".artifact_data";
 
-fn filter_entries(entry: &DirEntry) -> bool {
-    let skips = [
-        "github/workspace/.git/",
-        "github/workspace/.fastembed_cache/",
-        &format!("github/workspace/{DATA_PATH}"),
-    ];
-    // todo: extend skips from actions yml
+fn filter_entries(entry: &DirEntry, skips: Vec<String>) -> bool {
     let name = entry.path().to_str().unwrap_or_default();
     if skips.iter().any(|skip| name.contains(skip)) {
         return false;
@@ -17,9 +13,12 @@ fn filter_entries(entry: &DirEntry) -> bool {
     true
 }
 
-pub fn task(path: &Path) -> FilterEntry<IntoIter, fn(&DirEntry) -> bool> {
-    WalkDir::new(path)
+pub fn task(action: &Action) -> FilterEntry<IntoIter, impl FnMut(&DirEntry) -> bool> {
+    let mut skips = vec![format!("github/workspace/{DATA_PATH}")];
+    skips.extend(action.inputs.excludes.iter().cloned());
+    core::debug(&format!("[SKIPPING]: {:#?}", skips));
+    WalkDir::new(action.workspace_path.clone())
         .follow_links(true)
         .into_iter()
-        .filter_entry(filter_entries)
+        .filter_entry(move |dir| filter_entries(dir, skips.clone()))
 }

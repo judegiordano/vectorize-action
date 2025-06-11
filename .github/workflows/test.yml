@@ -21,7 +21,7 @@ jobs:
         id: rust_action
         uses: ./
         with:
-          name: 'Rust Developer'
+          exclude: 'github/workspace/.git/,github/workspace/.fastembed_cache/'
 
       - name: log data_path
         run: echo "copy from ${{ steps.rust_action.outputs.data_path }}"
