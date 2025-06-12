@@ -30,6 +30,7 @@ async fn main() -> Result<()> {
     let entries = WalkDir::new(&action.workspace_path)
         .follow_links(true)
         .into_iter();
+    core::debug(&format!("[EXCLUSIONS]: {:?}", action.inputs.excludes));
     for entry in entries {
         let path = entry?;
         if let Some(embed) = process_file::task(&model, &action, &path)? {

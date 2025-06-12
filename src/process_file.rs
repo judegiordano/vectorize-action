@@ -15,11 +15,15 @@ pub struct Embed {
 }
 
 pub fn task(model: &TextEmbedding, action: &Action, path: &DirEntry) -> Result<Option<Embed>> {
-    if path.file_type().is_dir() {
+    if !path.file_type().is_file() {
         return Ok(None);
     }
     let file_name = path.file_name().to_string_lossy().to_string();
     let path = path.path();
+    if let Err(err) = path.try_exists() {
+        core::warning(&format!("[ERROR ACCESSING] [{file_name}]: [{err:?}]"));
+        return Ok(None);
+    }
     let path_str = path.to_string_lossy().to_string();
     // excludes
     if action
