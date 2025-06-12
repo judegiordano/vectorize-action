@@ -18,19 +18,19 @@ jobs:
       - uses: pguyot/arm-runner-action@v2
 
       - name: test action
-        id: rust_action
+        id: vectorize
         uses: ./
         with:
-          exclude: 'github/workspace/.git/,github/workspace/.fastembed_cache/'
+          exclude: 'github/workspace/.git/,github/workspace/.fastembed_cache/,.db'
 
       - name: log data_path
-        run: echo "copy from ${{ steps.rust_action.outputs.data_path }}"
+        run: echo "copy from ${{ steps.vectorize.outputs.data_path }}"
 
       - name: upload data artifact
         uses: actions/upload-artifact@v4
         with:
           name: upload-artifact
-          path: ${{ steps.rust_action.outputs.data_path }}/*.db
+          path: ${{ steps.vectorize.outputs.data_path }}/*.db
           retention-days: 1
           include-hidden-files: true
           overwrite: true
