@@ -15,7 +15,7 @@ pub struct Embed {
 }
 
 pub fn task(model: &TextEmbedding, action: &Action, path: &DirEntry) -> Result<Option<Embed>> {
-    if !path.file_type().is_file() {
+    if path.path_is_symlink() || path.file_type().is_dir() {
         return Ok(None);
     }
     let file_name = path.file_name().to_string_lossy().to_string();

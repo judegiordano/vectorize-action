@@ -23,17 +23,25 @@ async fn main() -> Result<()> {
     sql::generate_db_file(&action.db_url).await?;
     let pool = SqlitePool::connect(&action.db_url).await?;
 
+    // migrate
     let result = FileEmbedding::create_table(&pool, &table_name).await?;
     core::debug(&format!("[TABLE CREATED]: {result:?}"));
 
     // process files
     let entries = WalkDir::new(&action.workspace_path)
-        .follow_links(true)
+        .follow_links(false)
         .into_iter();
     core::debug(&format!("[EXCLUSIONS]: {:?}", action.inputs.excludes));
-    for entry in entries {
+    'file_iter: for entry in entries {
         let path = entry?;
-        if let Some(embed) = process_file::task(&model, &action, &path)? {
+        let data = match process_file::task(&model, &action, &path) {
+            Ok(data) => data,
+            Err(err) => {
+                core::error(&format!("[UNHANDLED ERROR]: [{:#?}]", err));
+                continue 'file_iter;
+            }
+        };
+        if let Some(embed) = data {
             let data = FileEmbedding {
                 file: embed.file,
                 path: embed.path,
