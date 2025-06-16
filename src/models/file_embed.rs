@@ -10,6 +10,8 @@ use uuid::Uuid;
 
 use crate::models::Model;
 
+const CHUNK_SIZE: usize = 1_000;
+
 #[enum_def]
 #[allow(clippy::unsafe_derive_deserialize)]
 #[derive(Debug, Serialize, FromRow, Deserialize)]
@@ -124,11 +126,7 @@ impl FileEmbedding {
         Ok(created)
     }
 
-    pub async fn bulk_insert(
-        pool: &Pool<Sqlite>,
-        data: Vec<Self>,
-        table: &str,
-    ) -> Result<SqliteQueryResult> {
+    pub async fn bulk_insert(pool: &Pool<Sqlite>, data: Vec<Self>, table: &str) -> Result<()> {
         let mut transaction = pool.begin().await?;
 
         let mut operation = InsertStatement::new();
@@ -140,12 +138,8 @@ impl FileEmbedding {
             FileEmbeddingIden::Vector,
         ]);
 
-        const CHUNK_SIZE: usize = 1_000;
-        let mut last_result = None;
-
         for chunk in data.chunks(CHUNK_SIZE) {
             let mut batch_statement = statement.clone();
-
             for entry in chunk {
                 batch_statement.values([
                     entry.id.into(),
@@ -155,18 +149,15 @@ impl FileEmbedding {
                     serde_json::to_string(&entry.vector)?.into(),
                 ])?;
             }
-
             let sql = batch_statement.to_string(SqliteQueryBuilder);
-            last_result = Some(
-                sqlx::query(&sql)
-                    .persistent(true)
-                    .execute(&mut *transaction)
-                    .await?,
-            );
+            sqlx::query(&sql)
+                .persistent(true)
+                .execute(&mut *transaction)
+                .await?;
         }
 
         transaction.commit().await?;
 
-        Ok(last_result.unwrap_or_else(|| SqliteQueryResult::default()))
+        Ok(())
     }
 }

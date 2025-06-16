@@ -23,7 +23,7 @@ pub fn task(
     let path = match entry {
         Ok(p) => p,
         Err(err) => {
-            core::warning(&format!("[PATH ERROR]: [{err:?}]"));
+            core::warning(format!("[PATH ERROR]: [{err:?}]"));
             return Ok(None);
         }
     };
@@ -41,13 +41,13 @@ pub fn task(
         return Ok(None);
     }
 
-    let file_bytes = path.metadata()?.len() as usize;
+    let file_bytes = usize::try_from(path.metadata()?.len())?;
 
-    core::debug(&format!("[PROCESSING]: {path_str}"));
-    let file = match fs::File::open(&path) {
+    core::debug(format!("[PROCESSING]: {path_str}"));
+    let file = match fs::File::open(path) {
         Ok(file) => file,
         Err(err) => {
-            core::warning(&format!("[ERROR OPENING] [{file_name}]: [{err:?}]"));
+            core::warning(format!("[ERROR OPENING] [{file_name}]: [{err:?}]"));
             return Ok(None);
         }
     };
@@ -56,24 +56,22 @@ pub fn task(
     let mut content = String::with_capacity(file_bytes);
 
     if let Err(err) = reader.read_to_string(&mut content) {
-        core::warning(&format!("[ERROR READING] [{file_name}]: [{err:?}]"));
+        core::warning(format!("[ERROR READING] [{file_name}]: [{err:?}]"));
         return Ok(None);
     }
 
     if content.trim().is_empty() {
+        core::warning(format!("[SKIPPING EMPTY CONTENT]: [{file_name}]"));
         return Ok(None);
     }
 
     // Generate embedding
     let embedding = model.embed(vec![content], None)?;
-    let vector = match embedding.first() {
-        Some(vec) => vec.to_owned(),
-        None => {
-            core::warning(&format!(
-                "[ERROR EMBEDDING] [{file_name}]: No embedding generated"
-            ));
-            return Ok(None);
-        }
+    let vector = if let Some(vec) = embedding.first() {
+        vec.to_owned()
+    } else {
+        core::warning(format!("[ERROR EMBEDDING]: [{file_name}]"));
+        return Ok(None);
     };
 
     Ok(Some(Embed {
