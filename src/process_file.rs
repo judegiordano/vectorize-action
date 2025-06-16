@@ -14,7 +14,12 @@ pub struct Embed {
     pub vector: Vec<f32>,
 }
 
-pub fn task(model: &TextEmbedding, action: &Action, path: &DirEntry) -> Result<Option<Embed>> {
+pub fn task(
+    model: &TextEmbedding,
+    action: &Action,
+    entry: Result<DirEntry, walkdir::Error>,
+) -> Result<Option<Embed>> {
+    let path = entry?;
     if path.path_is_symlink() || path.file_type().is_dir() {
         return Ok(None);
     }

@@ -1,0 +1,8 @@
+without rayon 1173.058744152s
+
+withj rayon no sql writes: 596.088604395s
+
+544.173506952s
+
+518.332749703s
+552.654620966s

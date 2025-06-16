@@ -3421,6 +3421,7 @@ dependencies = [
  "chrono",
  "fastembed",
  "futures",
+ "rayon",
  "sea-query",
  "serde",
  "serde_json",

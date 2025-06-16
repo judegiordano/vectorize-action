@@ -11,7 +11,8 @@ use uuid::Uuid;
 use crate::models::Model;
 
 #[enum_def]
-#[derive(Debug, Serialize, FromRow, Deserialize, Default)]
+#[allow(clippy::unsafe_derive_deserialize)]
+#[derive(Debug, Serialize, FromRow, Deserialize)]
 pub struct FileEmbedding {
     pub id: Uuid,
     pub sha: String,
@@ -20,6 +21,20 @@ pub struct FileEmbedding {
     pub vector: Vec<f32>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+impl Default for FileEmbedding {
+    fn default() -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            sha: String::default(),
+            file: String::default(),
+            path: String::default(),
+            vector: Vec::default(),
+            created_at: DateTime::default(),
+            updated_at: DateTime::default(),
+        }
+    }
 }
 
 impl Model for FileEmbedding {
@@ -72,7 +87,7 @@ impl Model for FileEmbedding {
                 FileEmbeddingIden::Vector,
             ])
             .values([
-                Uuid::new_v4().into(),
+                self.id.into(),
                 self.sha.to_string().into(),
                 self.file.to_string().into(),
                 self.path.to_string().into(),
@@ -107,5 +122,34 @@ impl FileEmbedding {
             sqlx::query(&second_sql).execute(pool)
         )?;
         Ok(created)
+    }
+
+    pub async fn bulk_insert(
+        pool: &Pool<Sqlite>,
+        data: Vec<Self>,
+        table: &str,
+    ) -> Result<SqliteQueryResult> {
+        let mut operation = InsertStatement::new();
+        let statement = operation
+            .into_table(Alias::new(table))
+            .returning_all()
+            .columns([
+                FileEmbeddingIden::Id,
+                FileEmbeddingIden::Sha,
+                FileEmbeddingIden::File,
+                FileEmbeddingIden::Path,
+                FileEmbeddingIden::Vector,
+            ]);
+        for entry in data {
+            statement.values([
+                entry.id.into(),
+                entry.sha.to_string().into(),
+                entry.file.to_string().into(),
+                entry.path.to_string().into(),
+                serde_json::to_string(&entry.vector)?.into(),
+            ])?;
+        }
+        let sql = statement.to_string(SqliteQueryBuilder);
+        Ok(sqlx::query(&sql).execute(pool).await?)
     }
 }
