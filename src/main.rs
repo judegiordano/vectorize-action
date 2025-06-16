@@ -1,6 +1,6 @@
 use actions_toolkit::core;
 use anyhow::Result;
-use fastembed::TextEmbedding;
+use fastembed::{InitOptions, TextEmbedding};
 use sqlx::SqlitePool;
 use walkdir::WalkDir;
 
@@ -17,7 +17,7 @@ mod sql;
 #[tokio::main]
 async fn main() -> Result<()> {
     let mut action = Action::new()?;
-    let model = TextEmbedding::try_new(Default::default())?;
+    let model = TextEmbedding::try_new(InitOptions::default())?;
     // sql connect
     let table_name = action.commit_sha.clone();
     sql::generate_db_file(&action.db_url).await?;
@@ -25,19 +25,19 @@ async fn main() -> Result<()> {
 
     // migrate
     let result = FileEmbedding::create_table(&pool, &table_name).await?;
-    core::debug(&format!("[TABLE CREATED]: {result:?}"));
+    core::debug(format!("[TABLE CREATED]: {result:?}"));
 
     // process files
     let entries = WalkDir::new(&action.workspace_path)
         .follow_links(false)
         .into_iter();
-    core::debug(&format!("[EXCLUSIONS]: {:?}", action.inputs.excludes));
+    core::debug(format!("[EXCLUSIONS]: {:?}", action.inputs.excludes));
     'file_iter: for entry in entries {
         let path = entry?;
         let data = match process_file::task(&model, &action, &path) {
             Ok(data) => data,
             Err(err) => {
-                core::error(&format!("[UNHANDLED ERROR]: [{:#?}]", err));
+                core::error(format!("[UNHANDLED ERROR]: [{err:#?}]"));
                 continue 'file_iter;
             }
         };
@@ -50,7 +50,7 @@ async fn main() -> Result<()> {
                 ..Default::default()
             };
             let inserted = data.insert_one(&pool, &table_name).await?;
-            core::debug(&format!("[SAVING]: {inserted:?}"));
+            core::debug(format!("[SAVING]: {inserted:?}"));
         }
     }
     // set outputs

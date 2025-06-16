@@ -21,7 +21,7 @@ pub fn task(model: &TextEmbedding, action: &Action, path: &DirEntry) -> Result<O
     let file_name = path.file_name().to_string_lossy().to_string();
     let path = path.path();
     if let Err(err) = path.try_exists() {
-        core::warning(&format!("[ERROR ACCESSING] [{file_name}]: [{err:?}]"));
+        core::warning(format!("[ERROR ACCESSING] [{file_name}]: [{err:?}]"));
         return Ok(None);
     }
     let path_str = path.to_string_lossy().to_string();
@@ -35,18 +35,24 @@ pub fn task(model: &TextEmbedding, action: &Action, path: &DirEntry) -> Result<O
     {
         return Ok(None);
     }
-    core::debug(&format!("[PROCESSING]: {path_str}"));
-    let file_content = match fs::read_to_string(&path) {
+    core::debug(format!("[PROCESSING]: {path_str}"));
+    let file_content = match fs::read_to_string(path) {
         Ok(content) => content,
         Err(err) => {
-            core::warning(&format!("[ERROR READING] [{file_name}]: [{err:?}]"));
+            core::warning(format!("[ERROR READING] [{file_name}]: [{err:?}]"));
             return Ok(None);
         }
     };
     let embedding = model.embed(vec![file_content], None)?;
+    let vector = if let Some(vec) = embedding.first() {
+        vec.to_owned()
+    } else {
+        core::warning(format!("[ERROR EMBEDDING] [{file_name}]"));
+        return Ok(None);
+    };
     Ok(Some(Embed {
         file: file_name,
         path: path_str,
-        vector: embedding.first().unwrap().to_vec(),
+        vector,
     }))
 }

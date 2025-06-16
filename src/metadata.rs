@@ -15,7 +15,7 @@ impl Inputs {
     pub fn new() -> Result<Self> {
         Ok(Self {
             excludes: core::input("exclude")?
-                .split(",")
+                .split(',')
                 .map(|str: &str| str.to_string())
                 .collect(),
         })
