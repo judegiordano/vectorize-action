@@ -3421,6 +3421,7 @@ dependencies = [
  "chrono",
  "fastembed",
  "futures",
+ "once_cell",
  "rayon",
  "sea-query",
  "serde",

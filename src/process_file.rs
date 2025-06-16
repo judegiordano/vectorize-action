@@ -3,6 +3,7 @@ use anyhow::Result;
 use fastembed::TextEmbedding;
 use serde::Serialize;
 use std::fs;
+use std::io::{BufReader, Read};
 use walkdir::DirEntry;
 
 use crate::metadata::Action;
@@ -19,42 +20,62 @@ pub fn task(
     action: &Action,
     entry: Result<DirEntry, walkdir::Error>,
 ) -> Result<Option<Embed>> {
-    let path = entry?;
-    if path.path_is_symlink() || path.file_type().is_dir() {
-        return Ok(None);
-    }
-    let file_name = path.file_name().to_string_lossy().to_string();
-    let path = path.path();
-    if let Err(err) = path.try_exists() {
-        core::warning(format!("[ERROR ACCESSING] [{file_name}]: [{err:?}]"));
-        return Ok(None);
-    }
-    let path_str = path.to_string_lossy().to_string();
-    // excludes
-    if action
-        .inputs
-        .excludes
-        .iter()
-        .any(|skip| path_str.contains(skip))
-        || path_str.contains(&action.artifact_path)
-    {
-        return Ok(None);
-    }
-    core::debug(format!("[PROCESSING]: {path_str}"));
-    let file_content = match fs::read_to_string(path) {
-        Ok(content) => content,
+    let path = match entry {
+        Ok(p) => p,
         Err(err) => {
-            core::warning(format!("[ERROR READING] [{file_name}]: [{err:?}]"));
+            core::warning(&format!("[PATH ERROR]: [{err:?}]"));
             return Ok(None);
         }
     };
-    let embedding = model.embed(vec![file_content], None)?;
-    let vector = if let Some(vec) = embedding.first() {
-        vec.to_owned()
-    } else {
-        core::warning(format!("[ERROR EMBEDDING] [{file_name}]"));
+
+    if !path.file_type().is_file() || path.file_type().is_symlink() {
         return Ok(None);
+    }
+
+    let file_name = path.file_name().to_string_lossy().to_string();
+
+    let path = path.path();
+    let path_str = path.to_string_lossy().to_string();
+
+    if action.is_excluded(&path_str) || path_str.contains(&action.artifact_path) {
+        return Ok(None);
+    }
+
+    let file_bytes = path.metadata()?.len() as usize;
+
+    core::debug(&format!("[PROCESSING]: {path_str}"));
+    let file = match fs::File::open(&path) {
+        Ok(file) => file,
+        Err(err) => {
+            core::warning(&format!("[ERROR OPENING] [{file_name}]: [{err:?}]"));
+            return Ok(None);
+        }
     };
+
+    let mut reader = BufReader::with_capacity(file_bytes, file);
+    let mut content = String::with_capacity(file_bytes);
+
+    if let Err(err) = reader.read_to_string(&mut content) {
+        core::warning(&format!("[ERROR READING] [{file_name}]: [{err:?}]"));
+        return Ok(None);
+    }
+
+    if content.trim().is_empty() {
+        return Ok(None);
+    }
+
+    // Generate embedding
+    let embedding = model.embed(vec![content], None)?;
+    let vector = match embedding.first() {
+        Some(vec) => vec.to_owned(),
+        None => {
+            core::warning(&format!(
+                "[ERROR EMBEDDING] [{file_name}]: No embedding generated"
+            ));
+            return Ok(None);
+        }
+    };
+
     Ok(Some(Embed {
         file: file_name,
         path: path_str,

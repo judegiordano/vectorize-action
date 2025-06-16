@@ -2,7 +2,6 @@ use actions_toolkit::core::{self};
 use anyhow::Result;
 use fastembed::{InitOptions, TextEmbedding};
 use rayon::iter::{IntoParallelIterator, ParallelBridge, ParallelIterator};
-use sqlx::SqlitePool;
 use std::time::Instant;
 use walkdir::{DirEntry, WalkDir};
 
@@ -38,10 +37,9 @@ pub async fn run() -> Result<()> {
     let start = Instant::now();
     let action = Action::new()?;
     let model = TextEmbedding::try_new(InitOptions::default())?;
-    // sql connect
     let table_name = action.commit_sha.clone();
-    sql::generate_db_file(&action.db_url).await?;
-    let pool = SqlitePool::connect(&action.db_url).await?;
+    // connect
+    let pool = sql::connect(&action.db_url).await?;
 
     // migrate
     let result = FileEmbedding::create_table(&pool, &table_name).await?;
@@ -64,8 +62,7 @@ pub async fn run() -> Result<()> {
 
     // save to sqlite
     core::debug("[WRITING TO DB]");
-    let inserted = FileEmbedding::bulk_insert(&pool, data, &table_name).await?;
-    core::debug(format!("[INSERTED]: {inserted:?}"));
+    FileEmbedding::bulk_insert(&pool, data, &table_name).await?;
     core::debug(format!("[OPERATION COMPLETE]: {:?}", start.elapsed()));
     Ok(())
 }

@@ -129,27 +129,44 @@ impl FileEmbedding {
         data: Vec<Self>,
         table: &str,
     ) -> Result<SqliteQueryResult> {
+        let mut transaction = pool.begin().await?;
+
         let mut operation = InsertStatement::new();
-        let statement = operation
-            .into_table(Alias::new(table))
-            .returning_all()
-            .columns([
-                FileEmbeddingIden::Id,
-                FileEmbeddingIden::Sha,
-                FileEmbeddingIden::File,
-                FileEmbeddingIden::Path,
-                FileEmbeddingIden::Vector,
-            ]);
-        for entry in data {
-            statement.values([
-                entry.id.into(),
-                entry.sha.to_string().into(),
-                entry.file.to_string().into(),
-                entry.path.to_string().into(),
-                serde_json::to_string(&entry.vector)?.into(),
-            ])?;
+        let statement = operation.into_table(Alias::new(table)).columns([
+            FileEmbeddingIden::Id,
+            FileEmbeddingIden::Sha,
+            FileEmbeddingIden::File,
+            FileEmbeddingIden::Path,
+            FileEmbeddingIden::Vector,
+        ]);
+
+        const CHUNK_SIZE: usize = 1_000;
+        let mut last_result = None;
+
+        for chunk in data.chunks(CHUNK_SIZE) {
+            let mut batch_statement = statement.clone();
+
+            for entry in chunk {
+                batch_statement.values([
+                    entry.id.into(),
+                    entry.sha.to_string().into(),
+                    entry.file.to_string().into(),
+                    entry.path.to_string().into(),
+                    serde_json::to_string(&entry.vector)?.into(),
+                ])?;
+            }
+
+            let sql = batch_statement.to_string(SqliteQueryBuilder);
+            last_result = Some(
+                sqlx::query(&sql)
+                    .persistent(true)
+                    .execute(&mut *transaction)
+                    .await?,
+            );
         }
-        let sql = statement.to_string(SqliteQueryBuilder);
-        Ok(sqlx::query(&sql).execute(pool).await?)
+
+        transaction.commit().await?;
+
+        Ok(last_result.unwrap_or_else(|| SqliteQueryResult::default()))
     }
 }

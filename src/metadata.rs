@@ -43,4 +43,9 @@ impl Action {
             inputs: Inputs::new()?,
         })
     }
+
+    #[inline]
+    pub fn is_excluded(&self, path: &str) -> bool {
+        self.inputs.excludes.iter().any(|skip| path.contains(skip))
+    }
 }
