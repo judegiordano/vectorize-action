@@ -5,7 +5,7 @@ use rayon::iter::{IntoParallelIterator, ParallelBridge, ParallelIterator};
 use std::time::Instant;
 use walkdir::{DirEntry, WalkDir};
 
-use crate::metadata::Action;
+use crate::metadata::{Action, DATA_PATH};
 use crate::models::{Model, file_embed::FileEmbedding};
 use crate::{process_file, sql};
 
@@ -64,5 +64,6 @@ pub async fn run() -> Result<()> {
     core::debug("[WRITING TO DB]");
     FileEmbedding::bulk_insert(&pool, data, &table_name).await?;
     core::debug(format!("[OPERATION COMPLETE]: {:?}", start.elapsed()));
+    core::set_output("data_path", DATA_PATH);
     Ok(())
 }
