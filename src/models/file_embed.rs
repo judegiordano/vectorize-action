@@ -1,6 +1,9 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use sea_query::{Alias, ColumnDef, Expr, InsertStatement, SqliteQueryBuilder, Table, enum_def};
+use sea_query::{
+    Alias, ColumnDef, Expr, IndexCreateStatement, InsertStatement, SqliteQueryBuilder, Table,
+    enum_def,
+};
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Sqlite, prelude::FromRow, sqlite::SqliteQueryResult};
 use uuid::Uuid;
@@ -77,5 +80,32 @@ impl Model for FileEmbedding {
             ])?;
         let sql = statement.to_string(SqliteQueryBuilder);
         Ok(sqlx::query(&sql).execute(pool).await?)
+    }
+}
+
+impl FileEmbedding {
+    pub async fn create_indexes(
+        pool: &Pool<Sqlite>,
+        table: &str,
+    ) -> Result<(SqliteQueryResult, SqliteQueryResult)> {
+        let mut operation = IndexCreateStatement::new();
+        let first_statement = operation
+            .if_not_exists()
+            .table(Alias::new(table))
+            .name("file_name_idx")
+            .col(FileEmbeddingIden::File);
+        let first_sql = first_statement.to_string(SqliteQueryBuilder);
+        let second_statement = operation
+            .if_not_exists()
+            .table(Alias::new(table))
+            .name("path_name_idx")
+            .col(FileEmbeddingIden::Path);
+        let second_sql = second_statement.to_string(SqliteQueryBuilder);
+        // migrate
+        let created = futures::try_join!(
+            sqlx::query(&first_sql).execute(pool),
+            sqlx::query(&second_sql).execute(pool)
+        )?;
+        Ok(created)
     }
 }
