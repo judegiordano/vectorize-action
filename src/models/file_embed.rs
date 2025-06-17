@@ -137,7 +137,6 @@ impl FileEmbedding {
             FileEmbeddingIden::Path,
             FileEmbeddingIden::Vector,
         ]);
-
         for chunk in data.chunks(CHUNK_SIZE) {
             let mut batch_statement = statement.clone();
             for entry in chunk {
