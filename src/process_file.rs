@@ -43,7 +43,6 @@ pub fn task(
 
     let file_bytes = usize::try_from(path.metadata()?.len())?;
 
-    core::debug(format!("[PROCESSING]: {path_str}"));
     let file = match fs::File::open(path) {
         Ok(file) => file,
         Err(err) => {

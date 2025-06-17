@@ -9,7 +9,7 @@ use crate::metadata::{Action, DATA_PATH};
 use crate::models::{Model, file_embed::FileEmbedding};
 use crate::{process_file, sql};
 
-fn task(
+fn process(
     model: &TextEmbedding,
     action: &Action,
     entry: Result<DirEntry, walkdir::Error>,
@@ -21,16 +21,13 @@ fn task(
             return None;
         }
     };
-    if let Some(embed) = data {
-        return Some(FileEmbedding {
-            file: embed.file,
-            path: embed.path,
-            vector: embed.vector,
-            sha: action.commit_sha.to_string(),
-            ..FileEmbedding::default()
-        });
-    }
-    None
+    data.map(|embed| FileEmbedding {
+        file: embed.file,
+        path: embed.path,
+        vector: embed.vector,
+        sha: action.commit_sha.to_string(),
+        ..FileEmbedding::default()
+    })
 }
 
 pub async fn run() -> Result<()> {
@@ -57,7 +54,7 @@ pub async fn run() -> Result<()> {
 
     // process / filter
     let data = entries
-        .filter_map(|entry| task(&model, &action, entry))
+        .filter_map(|entry| process(&model, &action, entry))
         .collect();
 
     // save to sqlite
